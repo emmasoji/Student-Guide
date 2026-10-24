@@ -112,3 +112,10 @@ async def create_route(body: RouteRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Routing failed: {str(e)}")
+
+
+
+@router.post("/campus/places/refresh")
+async def refresh_campus_places():
+    places = await places_service.refresh_places()
+    return {"total": len(places), "source": "overpass+seed"}

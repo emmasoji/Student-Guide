@@ -236,15 +236,15 @@ async def compute_route(
     if dest_lat is None or dest_lng is None:
         raise ValueError("Destination coordinates or place_id required")
 
-    # 1. Prefer campus graph
+    # 1. Prefer OSRM (follows roads / footways)
+    osrm = await try_osrm(origin_lat, origin_lng, dest_lat, dest_lng)
+    if osrm and osrm.distance_m > 0:
+        return osrm
+
+    # 2. Campus place graph
     campus = compute_campus_route(origin_lat, origin_lng, dest_lat, dest_lng, dest_name)
     if campus and campus.distance_m > 0:
         return campus
 
-    # 2. Try OSRM
-    osrm = await try_osrm(origin_lat, origin_lng, dest_lat, dest_lng)
-    if osrm:
-        return osrm
-
-    # 3. Straight line fallback
+    # 3. Straight line last resort
     return compute_straight_line(origin_lat, origin_lng, dest_lat, dest_lng, dest_name)

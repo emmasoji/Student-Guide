@@ -13,9 +13,7 @@ import {
 import type { Place, Route, UserLocation } from '../types';
 import { formatDistance, formatDuration } from '../lib/api';
 
-const CARTO_STYLE =
-  'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json?key=cb1_4tc5_1_8ba4483f280ab3a321bd5a9e';
-
+const CARTO_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 interface Props {
   place: Place;
   route: Route | null;

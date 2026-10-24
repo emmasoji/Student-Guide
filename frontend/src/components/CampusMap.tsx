@@ -34,7 +34,7 @@ export function CampusMap({
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: `https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json?key=cb1_4tc5_1_8ba4483f280ab3a321bd5a9e`,
+      style: 'https://tiles.openfreemap.org/styles/liberty',
       center: [3.37414, 6.51873],
       zoom: 16.5,
       maxBounds: [
