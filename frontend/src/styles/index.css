@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    @apply bg-surface-muted text-text font-sans antialiased;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* MapLibre overrides – keep attribution visible */
+  .maplibregl-ctrl-attrib {
+    font-size: 10px !important;
+  }
+
+  .maplibregl-popup-content {
+    @apply rounded-lg shadow-elevated border border-surface-border p-0 overflow-hidden;
+    padding: 0 !important;
+  }
+
+  .maplibregl-popup-close-button {
+    @apply text-text-muted text-lg leading-none px-2 py-1;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary text-white hover:bg-primary-dark;
+  }
+
+  .btn-secondary {
+    @apply btn bg-surface border border-surface-border text-text hover:bg-surface-muted;
+  }
+
+  .btn-ghost {
+    @apply btn text-text-muted hover:bg-surface-muted hover:text-text;
+  }
+
+  .panel {
+    @apply bg-surface border border-surface-border rounded-xl shadow-panel;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-surface-border bg-surface px-3 py-2.5 text-sm text-text placeholder:text-text-light focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+  }
+}

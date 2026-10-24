@@ -1,0 +1,22 @@
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Node.js
+node_modules/
+dist/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Logs
+*.log
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
