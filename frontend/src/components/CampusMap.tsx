@@ -84,31 +84,41 @@ export function CampusMap({
     markersRef.current = [];
 
     mapData.places.forEach((p) => {
-      const isSelected = selectedPlace?.id === p.id;
-      const color = isSelected ? PIN_SELECTED : PIN_COLOR;
+  const isSelected = selectedPlace?.id === p.id;
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.setAttribute('aria-label', p.name);
+  el.textContent = p.name;
+  el.style.cssText = `
+    border: none;
+    cursor: pointer;
+    font-family: Inter, system-ui, sans-serif;
+    font-size: ${isSelected ? '11px' : '10px'};
+    font-weight: ${isSelected ? '600' : '500'};
+    line-height: 1.2;
+    max-width: 100px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: ${isSelected ? '#426755' : '#f9f7ea'};
+    color: ${isSelected ? '#f9f7ea' : '#161616'};
+    box-shadow: 0 1px 2px rgba(0,0,0,0.18);
+    border: 1px solid ${isSelected ? '#345544' : 'rgba(66,103,85,0.35)'};
+  `;
 
-      const el = document.createElement('button');
-      el.className = isSelected ? 'campus-pin selected' : 'campus-pin';
-      el.setAttribute('aria-label', p.name);
-      el.innerHTML = `
-        <svg viewBox="0 0 24 36" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-          <path fill="${color}" stroke="#f9f7ea" stroke-width="1.5"
-            d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24C24 5.4 18.6 0 12 0z"/>
-          <circle cx="12" cy="12" r="4.5" fill="#f9f7ea"/>
-        </svg>
-      `;
+  const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+    .setLngLat([p.lng, p.lat])
+    .addTo(map);
 
-      const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
-        .setLngLat([p.lng, p.lat])
-        .addTo(map);
+  el.addEventListener('click', (e) => {
+    e.stopPropagation();
+    onSelectPlace(p.id);
+  });
 
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        onSelectPlace(p.id);
-      });
-
-      markersRef.current.push(marker);
-    });
+  markersRef.current.push(marker);
+});
   }, [mapData, selectedPlace, onSelectPlace]);
 
   useEffect(() => {

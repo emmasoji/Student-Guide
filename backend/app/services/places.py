@@ -1,11 +1,11 @@
 import json
 import math
-from pathlib import Path
 from typing import List, Optional
-from functools import lru_cache
 
 from app.core.config import get_settings
 from app.models.schemas import Place, PlaceCategory
+
+_runtime_cache: Optional[List[Place]] = None
 
 
 def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -17,8 +17,7 @@ def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
-@lru_cache
-def load_places() -> List[Place]:
+def load_seed_places() -> List[Place]:
     settings = get_settings()
     path = settings.data_dir / "places.json"
     if not path.exists():
@@ -28,12 +27,44 @@ def load_places() -> List[Place]:
     return [Place(**item) for item in raw]
 
 
+def _merge(live: List[Place], seed: List[Place]) -> List[Place]:
+    by_name = {p.name.lower(): p for p in live}
+    for p in seed:
+        if p.name.lower() not in by_name:
+            by_name[p.name.lower()] = p
+    return sorted(by_name.values(), key=lambda x: x.name.lower())
+
+
 def get_all_places() -> List[Place]:
-    return load_places()
+    global _runtime_cache
+    if _runtime_cache is not None:
+        return _runtime_cache
+    # Seed until async refresh runs
+    _runtime_cache = load_seed_places()
+    return _runtime_cache
+
+
+async def refresh_places() -> List[Place]:
+    """Pull live OSM features and merge with seed."""
+    global _runtime_cache
+    from app.services.live_places import fetch_live_places
+
+    try:
+        live = await fetch_live_places()
+    except Exception:
+        live = []
+    seed = load_seed_places()
+    _runtime_cache = _merge(live, seed) if live else seed
+    return _runtime_cache
+
+
+def set_places_cache(places: List[Place]) -> None:
+    global _runtime_cache
+    _runtime_cache = places
 
 
 def get_place_by_id(place_id: str) -> Optional[Place]:
-    for p in load_places():
+    for p in get_all_places():
         if p.id == place_id:
             return p
     return None
@@ -44,7 +75,7 @@ def search_places(query: str, limit: int = 20) -> List[Place]:
     if not q:
         return []
     results = []
-    for p in load_places():
+    for p in get_all_places():
         score = 0
         name_l = p.name.lower()
         if q in name_l:
@@ -73,7 +104,7 @@ def nearby_places(
     limit: int = 10,
 ) -> List[Place]:
     candidates = []
-    for p in load_places():
+    for p in get_all_places():
         if category and p.category != category:
             continue
         d = _haversine_m(lat, lng, p.lat, p.lng)
@@ -85,7 +116,7 @@ def nearby_places(
 
 def get_categories() -> List[dict]:
     counts: dict[str, int] = {}
-    for p in load_places():
+    for p in get_all_places():
         counts[p.category.value] = counts.get(p.category.value, 0) + 1
     labels = {
         "gate": "Gates",
