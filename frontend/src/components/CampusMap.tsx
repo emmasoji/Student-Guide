@@ -12,16 +12,8 @@ interface Props {
   flyTo?: { lat: number; lng: number; zoom?: number } | null;
 }
 
-const CATEGORY_COLORS: Record<string, string> = {
-  gate: '#c53030',
-  lecture_hall: '#2b6cb0',
-  laboratory: '#276749',
-  library: '#6b46c1',
-  cafeteria: '#c05621',
-  hostel: '#2c7a7b',
-  administrative: '#1e3a5f',
-  facility: '#4a5568',
-};
+const PIN_COLOR = '#426755';
+const PIN_SELECTED = '#345544';
 
 export function CampusMap({
   mapData,
@@ -48,11 +40,10 @@ export function CampusMap({
         sources: {
           osm: {
             type: 'raster',
-            tiles: [
-              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            ],
+            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
             tileSize: 256,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            attribution:
+              '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
           },
         },
         layers: [
@@ -80,7 +71,11 @@ export function CampusMap({
     map.on('load', () => {
       map.addSource(routeSourceId, {
         type: 'geojson',
-        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } },
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: [] },
+        },
       });
       map.addLayer({
         id: 'route-line-layer',
@@ -88,8 +83,8 @@ export function CampusMap({
         source: routeSourceId,
         layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: {
-          'line-color': '#1e3a5f',
-          'line-width': 5,
+          'line-color': '#426755',
+          'line-width': 6,
           'line-opacity': 0.9,
         },
       });
@@ -105,7 +100,7 @@ export function CampusMap({
     };
   }, []);
 
-  // Markers for places
+  // Markers for places (pin icons)
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapData) return;
@@ -114,31 +109,28 @@ export function CampusMap({
     markersRef.current = [];
 
     mapData.places.forEach((p) => {
-      const el = document.createElement('button');
-      el.className = 'campus-marker';
-      el.setAttribute('aria-label', p.name);
-      el.style.cssText = `
-        width: 28px; height: 28px; border-radius: 50%;
-        background: ${CATEGORY_COLORS[p.category] || '#4a5568'};
-        border: 2px solid white;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-        cursor: pointer; padding: 0; display: flex;
-        align-items: center; justify-content: center;
-      `;
-      if (selectedPlace?.id === p.id) {
-        el.style.width = '34px';
-        el.style.height = '34px';
-        el.style.borderWidth = '3px';
-      }
+      const isSelected = selectedPlace?.id === p.id;
+      const color = isSelected ? PIN_SELECTED : PIN_COLOR;
 
-      const marker = new maplibregl.Marker({ element: el })
+      const el = document.createElement('button');
+      el.className = isSelected ? 'campus-pin selected' : 'campus-pin';
+      el.setAttribute('aria-label', p.name);
+      el.innerHTML = `
+        <svg viewBox="0 0 24 36" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+          <path fill="${color}" stroke="#f9f7ea" stroke-width="1.5"
+            d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24C24 5.4 18.6 0 12 0z"/>
+          <circle cx="12" cy="12" r="4.5" fill="#f9f7ea"/>
+        </svg>
+      `;
+
+      const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
         .setLngLat([p.lng, p.lat])
         .setPopup(
-          new maplibregl.Popup({ offset: 16, closeButton: true }).setHTML(
-            `<div style="padding:10px 12px;min-width:140px">
-              <div style="font-weight:600;font-size:13px;color:#1a202c">${p.name}</div>
-              <div style="font-size:11px;color:#718096;margin-top:2px;text-transform:capitalize">${p.category.replace('_', ' ')}</div>
-              ${!p.verified ? '<div style="font-size:10px;color:#c05621;margin-top:4px">Approximate location</div>' : ''}
+          new maplibregl.Popup({ offset: 28, closeButton: true }).setHTML(
+            `<div style="padding:10px 12px;min-width:140px;background:#f9f7ea">
+              <div style="font-weight:600;font-size:13px;color:#161616">${p.name}</div>
+              <div style="font-size:11px;color:#6b6b6b;margin-top:2px;text-transform:capitalize">${p.category.replace('_', ' ')}</div>
+              ${!p.verified ? '<div style="font-size:10px;color:#ba1607;margin-top:4px">Approximate location</div>' : ''}
             </div>`
           )
         )
@@ -167,8 +159,8 @@ export function CampusMap({
     const el = document.createElement('div');
     el.style.cssText = `
       width: 18px; height: 18px; border-radius: 50%;
-      background: #2b6cb0; border: 3px solid white;
-      box-shadow: 0 0 0 2px #2b6cb0, 0 1px 4px rgba(0,0,0,0.3);
+      background: #426755; border: 3px solid #f9f7ea;
+      box-shadow: 0 0 0 2px #426755, 0 1px 4px rgba(0,0,0,0.3);
     `;
 
     if (!userMarkerRef.current) {
@@ -188,16 +180,20 @@ export function CampusMap({
     if (!source) return;
 
     if (!route || !route.geometry.length) {
-      source.setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } });
+      source.setData({
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'LineString', coordinates: [] },
+      });
       return;
     }
+
     source.setData({
       type: 'Feature',
       properties: {},
       geometry: { type: 'LineString', coordinates: route.geometry },
     });
 
-    // Fit bounds to route
     const bounds = new maplibregl.LngLatBounds();
     route.geometry.forEach((c) => bounds.extend(c as [number, number]));
     map.fitBounds(bounds, { padding: 80, maxZoom: 18, duration: 800 });
@@ -223,12 +219,9 @@ export function CampusMap({
     }
   }, [userLocation]);
 
-  // Expose goToUser via a custom event or just leave for parent controls
   useEffect(() => {
     (window as any).__yabatechGoToUser = goToUser;
   }, [goToUser]);
 
-  return (
-    <div ref={containerRef} className="absolute inset-0 w-full h-full" />
-  );
+  return <div ref={containerRef} className="absolute inset-0 w-full h-full" />;
 }

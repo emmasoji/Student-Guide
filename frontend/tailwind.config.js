@@ -4,26 +4,41 @@ export default {
   theme: {
     extend: {
       colors: {
+        cream: {
+          DEFAULT: '#f9f7ea',
+        },
+        ink: {
+          DEFAULT: '#161616',
+        },
+        forest: {
+          DEFAULT: '#426755',
+          dark: '#345544',
+          light: '#5a8570',
+        },
+        danger: {
+          DEFAULT: '#ba1607',
+        },
         primary: {
-          DEFAULT: '#1e3a5f', // deep navy
-          dark: '#152a45',
-          light: '#2c5282',
+          DEFAULT: '#426755',
+          dark: '#345544',
+          light: '#5a8570',
         },
         surface: {
-          DEFAULT: '#ffffff',
-          muted: '#f4f6f8',
-          border: '#e2e8f0',
+          DEFAULT: '#f9f7ea',
+          muted: '#f0ecda',
+          border: '#e0dcc8',
         },
         text: {
-          DEFAULT: '#1a202c',
-          muted: '#4a5568',
-          light: '#718096',
+          DEFAULT: '#161616',
+          muted: '#3d3d3d',
+          light: '#6b6b6b',
+          inverse: '#f9f7ea',
         },
         accent: {
-          DEFAULT: '#2b6cb0',
-          success: '#276749',
+          DEFAULT: '#426755',
+          success: '#426755',
           warning: '#c05621',
-          danger: '#c53030',
+          danger: '#ba1607',
         },
       },
       fontFamily: {
@@ -31,7 +46,7 @@ export default {
       },
       boxShadow: {
         panel: '0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.06)',
-        elevated: '0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.05)',
+        elevated: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.06)',
       },
     },
   },

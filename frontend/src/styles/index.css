@@ -12,32 +12,39 @@
   }
 
   body {
-    @apply bg-surface-muted text-text font-sans antialiased;
+    @apply bg-surface text-text font-sans antialiased;
     -webkit-font-smoothing: antialiased;
   }
 
-  /* MapLibre overrides – keep attribution visible */
   .maplibregl-ctrl-attrib {
     font-size: 10px !important;
   }
 
   .maplibregl-popup-content {
-    @apply rounded-lg shadow-elevated border border-surface-border p-0 overflow-hidden;
+    @apply rounded-lg shadow-elevated border border-surface-border p-0 overflow-hidden bg-surface;
     padding: 0 !important;
   }
 
   .maplibregl-popup-close-button {
     @apply text-text-muted text-lg leading-none px-2 py-1;
   }
+
+  .maplibregl-ctrl-group {
+    @apply rounded-lg overflow-hidden border border-surface-border;
+  }
+
+  .maplibregl-ctrl-group button {
+    @apply bg-surface text-text;
+  }
 }
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-forest focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50 disabled:pointer-events-none;
   }
 
   .btn-primary {
-    @apply btn bg-primary text-white hover:bg-primary-dark;
+    @apply btn bg-forest text-cream hover:bg-forest-dark;
   }
 
   .btn-secondary {
@@ -48,11 +55,27 @@
     @apply btn text-text-muted hover:bg-surface-muted hover:text-text;
   }
 
+  .btn-danger {
+    @apply btn bg-danger text-cream hover:opacity-90;
+  }
+
   .panel {
     @apply bg-surface border border-surface-border rounded-xl shadow-panel;
   }
 
   .input {
-    @apply w-full rounded-lg border border-surface-border bg-surface px-3 py-2.5 text-sm text-text placeholder:text-text-light focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+    @apply w-full rounded-lg border border-surface-border bg-surface px-3 py-2.5 text-sm text-text placeholder:text-text-light focus:outline-none focus:ring-2 focus:ring-forest focus:border-transparent;
+  }
+
+  .campus-pin {
+    width: 28px;
+    height: 36px;
+    cursor: pointer;
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.35));
+  }
+
+  .campus-pin.selected {
+    width: 34px;
+    height: 44px;
   }
 }

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Menu, Search } from 'lucide-react';
 import { CampusMap } from './components/CampusMap';
-import { SearchBar } from './components/SearchBar';
+import { SearchDropdown } from './components/SearchDropdown';
+import { Sidebar } from './components/Sidebar';
 import { DestinationPanel } from './components/DestinationPanel';
 import { RoutePanel } from './components/RoutePanel';
 import { MapControls } from './components/MapControls';
@@ -23,6 +25,10 @@ export default function App() {
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+
   const geo = useGeolocation();
 
   useEffect(() => {
@@ -36,7 +42,10 @@ export default function App() {
       });
   }, []);
 
-  // Filter markers by category on the client (mapData stays full)
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+  }, [darkMode]);
+
   const filteredMapData = mapData
     ? {
         ...mapData,
@@ -52,6 +61,7 @@ export default function App() {
       setSelectedPlace(place);
       setRoute(null);
       setFlyTo({ lat: place.lat, lng: place.lng, zoom: 17.8 });
+      setSearchOpen(false);
     } catch {
       // ignore
     }
@@ -61,6 +71,7 @@ export default function App() {
     setSelectedPlace(place);
     setRoute(null);
     setFlyTo({ lat: place.lat, lng: place.lng, zoom: 17.8 });
+    setSearchOpen(false);
   }, []);
 
   const handleNavigate = useCallback(async () => {
@@ -73,7 +84,6 @@ export default function App() {
         originLat = geo.location.lat;
         originLng = geo.location.lng;
       } else {
-        // Use main gate as default origin when no location
         originLat = 6.5172;
         originLng = 3.3730;
       }
@@ -98,9 +108,23 @@ export default function App() {
     }
   }, [geo]);
 
+  const handleSidebarItem = useCallback((id: string) => {
+    const map: Record<string, string | null> = {
+      explore: null,
+      buildings: 'lecture_hall',
+      library: 'library',
+      cafeteria: 'cafeteria',
+      hostels: 'hostel',
+    };
+    setActiveCategory(map[id] ?? null);
+  }, []);
+
   return (
-    <div className="relative w-full h-full overflow-hidden">
-      {/* Map */}
+    <div
+      className={`relative w-full h-full overflow-hidden ${
+        darkMode ? 'bg-ink' : 'bg-surface'
+      }`}
+    >
       <CampusMap
         mapData={filteredMapData}
         selectedPlace={selectedPlace}
@@ -110,24 +134,59 @@ export default function App() {
         flyTo={flyTo}
       />
 
-      {/* Top bar */}
-      <div className="absolute top-0 left-0 right-0 z-20 p-3 pointer-events-none">
-        <div className="pointer-events-auto">
-          <div className="mb-2 flex items-center gap-2">
-            <div className="panel px-3 py-1.5 text-sm font-semibold text-primary shadow-elevated">
-              YABATECH Campus Nav
-            </div>
+      {/* Top: hamburger + search */}
+      <div className="absolute top-0 left-0 right-0 z-30 p-3 pointer-events-none">
+        <div className="pointer-events-auto flex items-start gap-2 max-w-lg">
+          <button
+            type="button"
+            onClick={() => {
+              setSidebarOpen(true);
+              setSearchOpen(false);
+            }}
+            className={`panel p-2.5 shadow-elevated shrink-0 ${
+              darkMode ? 'bg-ink text-cream border-white/10' : 'bg-surface text-text'
+            }`}
+            aria-label="Open menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+
+          <div className="relative flex-1 min-w-0">
+            <button
+              type="button"
+              onClick={() => {
+                setSearchOpen((v) => !v);
+                setSidebarOpen(false);
+              }}
+              className={`w-full panel flex items-center gap-2 px-3 py-2.5 shadow-elevated text-left ${
+                darkMode ? 'bg-ink text-cream border-white/10' : 'bg-surface text-text'
+              }`}
+              aria-label="Search places"
+            >
+              <Search className="w-4 h-4 text-forest shrink-0" />
+              <span className={`text-sm truncate ${darkMode ? 'text-cream/60' : 'text-text-light'}`}>
+                Search places...
+              </span>
+            </button>
+
+            <SearchDropdown
+              open={searchOpen}
+              onClose={() => setSearchOpen(false)}
+              onSelect={handleSearchSelect}
+              darkMode={darkMode}
+            />
           </div>
-          <SearchBar
-            onSelect={handleSearchSelect}
-            categories={categories}
-            activeCategory={activeCategory}
-            onCategoryChange={setActiveCategory}
-          />
         </div>
       </div>
 
-      {/* Map controls (right side) */}
+      <Sidebar
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        darkMode={darkMode}
+        onToggleDarkMode={() => setDarkMode((d) => !d)}
+        onSelectItem={handleSidebarItem}
+      />
+
       <div className="absolute top-1/2 right-3 -translate-y-1/2 z-20">
         <MapControls
           tracking={geo.tracking}
@@ -138,7 +197,6 @@ export default function App() {
         />
       </div>
 
-      {/* Bottom panels */}
       <div className="absolute bottom-0 left-0 right-0 z-20 p-3 flex flex-col items-center gap-2 pointer-events-none">
         {route && selectedPlace && (
           <div className="pointer-events-auto w-full flex justify-center">
@@ -164,7 +222,6 @@ export default function App() {
         )}
       </div>
 
-      {/* Loading / error overlays */}
       {!mapData && !loadError && (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-surface/80">
           <div className="panel px-6 py-4 text-sm text-text-muted">Loading campus map...</div>
@@ -175,9 +232,6 @@ export default function App() {
           <div className="panel px-6 py-5 max-w-sm text-center">
             <p className="text-sm font-medium text-text">Could not load campus data</p>
             <p className="text-xs text-text-muted mt-1">{loadError}</p>
-            <p className="text-xs text-text-light mt-3">
-              Ensure the backend is running at the configured API URL.
-            </p>
           </div>
         </div>
       )}
