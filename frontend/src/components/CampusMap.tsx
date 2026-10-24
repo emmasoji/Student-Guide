@@ -29,44 +29,20 @@ export function CampusMap({
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
   const routeSourceId = 'route-line';
 
-  // Init map
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: {
-        version: 8,
-        sources: {
-          osm: {
-            type: 'raster',
-            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-            tileSize: 256,
-            attribution:
-              '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-          },
-        },
-        layers: [
-          {
-            id: 'osm',
-            type: 'raster',
-            source: 'osm',
-            minzoom: 0,
-            maxzoom: 19,
-          },
-        ],
-      },
+      style: `https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json?key=cb1_4tc5_1_8ba4483f280ab3a321bd5a9e`,
       center: [3.37414, 6.51873],
       zoom: 16.5,
       maxBounds: [
         [3.368, 6.513],
         [3.381, 6.525],
       ],
-      attributionControl: true,
+      attributionControl: false,
     });
-
-    map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right');
-    map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
 
     map.on('load', () => {
       map.addSource(routeSourceId, {
@@ -100,7 +76,6 @@ export function CampusMap({
     };
   }, []);
 
-  // Markers for places (pin icons)
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapData) return;
@@ -125,15 +100,6 @@ export function CampusMap({
 
       const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
         .setLngLat([p.lng, p.lat])
-        .setPopup(
-          new maplibregl.Popup({ offset: 28, closeButton: true }).setHTML(
-            `<div style="padding:10px 12px;min-width:140px;background:#f9f7ea">
-              <div style="font-weight:600;font-size:13px;color:#161616">${p.name}</div>
-              <div style="font-size:11px;color:#6b6b6b;margin-top:2px;text-transform:capitalize">${p.category.replace('_', ' ')}</div>
-              ${!p.verified ? '<div style="font-size:10px;color:#ba1607;margin-top:4px">Approximate location</div>' : ''}
-            </div>`
-          )
-        )
         .addTo(map);
 
       el.addEventListener('click', (e) => {
@@ -145,7 +111,6 @@ export function CampusMap({
     });
   }, [mapData, selectedPlace, onSelectPlace]);
 
-  // User location marker
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -172,7 +137,6 @@ export function CampusMap({
     }
   }, [userLocation]);
 
-  // Route line
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
@@ -199,7 +163,6 @@ export function CampusMap({
     map.fitBounds(bounds, { padding: 80, maxZoom: 18, duration: 800 });
   }, [route]);
 
-  // Fly to target
   useEffect(() => {
     if (!flyTo || !mapRef.current) return;
     mapRef.current.flyTo({
@@ -221,6 +184,16 @@ export function CampusMap({
 
   useEffect(() => {
     (window as any).__yabatechGoToUser = goToUser;
+    (window as any).__yabatechZoom = (delta: number) => {
+      const map = mapRef.current;
+      if (!map) return;
+      map.zoomTo(map.getZoom() + delta, { duration: 250 });
+    };
+    (window as any).__yabatechResetNorth = () => {
+      const map = mapRef.current;
+      if (!map) return;
+      map.easeTo({ bearing: 0, pitch: 0, duration: 400 });
+    };
   }, [goToUser]);
 
   return <div ref={containerRef} className="absolute inset-0 w-full h-full" />;
