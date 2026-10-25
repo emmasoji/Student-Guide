@@ -1,6 +1,10 @@
-import { useEffect, useRef, useCallback } from 'react';
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import { useEffect, useState, useCallback } from 'react';
+import {
+  APIProvider,
+  Map,
+  AdvancedMarker,
+  useMap,
+} from '@vis.gl/react-google-maps';
 import type { Place, Route, UserLocation, MapData } from '../types';
 
 interface Props {
@@ -12,10 +16,31 @@ interface Props {
   flyTo?: { lat: number; lng: number; zoom?: number } | null;
 }
 
-const PIN_COLOR = '#426755';
-const PIN_SELECTED = '#345544';
+const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string;
+const mapId = import.meta.env.VITE_GOOGLE_MAP_ID as string | undefined;
 
-export function CampusMap({
+// YABATECH campus centre (fallback)
+const CAMPUS_CENTER = { lat: 6.51873, lng: 3.37414 };
+
+// Cleaner map style – reduces POI clutter
+const CLEAN_STYLES: google.maps.MapTypeStyle[] = [
+  {
+    featureType: 'poi',
+    elementType: 'labels',
+    stylers: [{ visibility: 'off' }],
+  },
+  {
+    featureType: 'poi.business',
+    stylers: [{ visibility: 'off' }],
+  },
+  {
+    featureType: 'transit',
+    elementType: 'labels.icon',
+    stylers: [{ visibility: 'off' }],
+  },
+];
+
+function MapInner({
   mapData,
   selectedPlace,
   route,
@@ -23,188 +48,201 @@ export function CampusMap({
   onSelectPlace,
   flyTo,
 }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
-  const markersRef = useRef<maplibregl.Marker[]>([]);
-  const userMarkerRef = useRef<maplibregl.Marker | null>(null);
-  const routeSourceId = 'route-line';
+  const map = useMap();
 
+  // Start at user location once available
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
+    if (!map || !userLocation) return;
+    map.panTo({ lat: userLocation.lat, lng: userLocation.lng });
+    map.setZoom(17.5);
+  }, [map, userLocation?.lat, userLocation?.lng]);
 
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: 'https://tiles.openfreemap.org/styles/liberty',
-      center: [3.37414, 6.51873],
-      zoom: 16.5,
-      maxBounds: [
-        [3.368, 6.513],
-        [3.381, 6.525],
-      ],
-      attributionControl: false,
-    });
-
-    map.on('load', () => {
-      map.addSource(routeSourceId, {
-        type: 'geojson',
-        data: {
-          type: 'Feature',
-          properties: {},
-          geometry: { type: 'LineString', coordinates: [] },
-        },
-      });
-      map.addLayer({
-        id: 'route-line-layer',
-        type: 'line',
-        source: routeSourceId,
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: {
-          'line-color': '#426755',
-          'line-width': 6,
-          'line-opacity': 0.9,
-        },
-      });
-    });
-
-    mapRef.current = map;
-
-    return () => {
-      markersRef.current.forEach((m) => m.remove());
-      userMarkerRef.current?.remove();
-      map.remove();
-      mapRef.current = null;
-    };
-  }, []);
-
+  // External flyTo requests (from search / place selection)
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapData) return;
+    if (!map || !flyTo) return;
+    map.panTo({ lat: flyTo.lat, lng: flyTo.lng });
+    if (flyTo.zoom) map.setZoom(flyTo.zoom);
+  }, [map, flyTo]);
 
-    markersRef.current.forEach((m) => m.remove());
-    markersRef.current = [];
-
-    mapData.places.forEach((p) => {
-  const isSelected = selectedPlace?.id === p.id;
-  const el = document.createElement('button');
-  el.type = 'button';
-  el.setAttribute('aria-label', p.name);
-  el.textContent = p.name;
-  el.style.cssText = `
-    border: none;
-    cursor: pointer;
-    font-family: Inter, system-ui, sans-serif;
-    font-size: ${isSelected ? '11px' : '10px'};
-    font-weight: ${isSelected ? '600' : '500'};
-    line-height: 1.2;
-    max-width: 100px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    padding: 2px 6px;
-    border-radius: 999px;
-    background: ${isSelected ? '#426755' : '#f9f7ea'};
-    color: ${isSelected ? '#f9f7ea' : '#161616'};
-    box-shadow: 0 1px 2px rgba(0,0,0,0.18);
-    border: 1px solid ${isSelected ? '#345544' : 'rgba(66,103,85,0.35)'};
-  `;
-
-  const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
-    .setLngLat([p.lng, p.lat])
-    .addTo(map);
-
-  el.addEventListener('click', (e) => {
-    e.stopPropagation();
-    onSelectPlace(p.id);
-  });
-
-  markersRef.current.push(marker);
-});
-  }, [mapData, selectedPlace, onSelectPlace]);
-
+  // Draw / clear walking route
   useEffect(() => {
-    const map = mapRef.current;
     if (!map) return;
 
-    if (!userLocation) {
-      userMarkerRef.current?.remove();
-      userMarkerRef.current = null;
-      return;
+    const existing = (map as any).__routePolyline as google.maps.Polyline | undefined;
+    if (existing) {
+      existing.setMap(null);
+      (map as any).__routePolyline = undefined;
     }
 
-    const el = document.createElement('div');
-    el.style.cssText = `
-      width: 18px; height: 18px; border-radius: 50%;
-      background: #426755; border: 3px solid #f9f7ea;
-      box-shadow: 0 0 0 2px #426755, 0 1px 4px rgba(0,0,0,0.3);
-    `;
+    if (!route?.geometry?.length) return;
 
-    if (!userMarkerRef.current) {
-      userMarkerRef.current = new maplibregl.Marker({ element: el })
-        .setLngLat([userLocation.lng, userLocation.lat])
-        .addTo(map);
-    } else {
-      userMarkerRef.current.setLngLat([userLocation.lng, userLocation.lat]);
-    }
-  }, [userLocation]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
-    const source = map.getSource(routeSourceId) as maplibregl.GeoJSONSource | undefined;
-    if (!source) return;
-
-    if (!route || !route.geometry.length) {
-      source.setData({
-        type: 'Feature',
-        properties: {},
-        geometry: { type: 'LineString', coordinates: [] },
-      });
-      return;
-    }
-
-    source.setData({
-      type: 'Feature',
-      properties: {},
-      geometry: { type: 'LineString', coordinates: route.geometry },
+    const path = route.geometry.map(([lng, lat]) => ({ lat, lng }));
+    const polyline = new google.maps.Polyline({
+      path,
+      geodesic: true,
+      strokeColor: '#1e3a5f',
+      strokeOpacity: 0.9,
+      strokeWeight: 5,
     });
+    polyline.setMap(map);
+    (map as any).__routePolyline = polyline;
 
-    const bounds = new maplibregl.LngLatBounds();
-    route.geometry.forEach((c) => bounds.extend(c as [number, number]));
-    map.fitBounds(bounds, { padding: 80, maxZoom: 18, duration: 800 });
-  }, [route]);
+    const bounds = new google.maps.LatLngBounds();
+    path.forEach((p) => bounds.extend(p));
+    map.fitBounds(bounds, 70);
+  }, [map, route]);
 
+  // Expose simple zoom / locate helpers for the floating buttons in App.tsx
   useEffect(() => {
-    if (!flyTo || !mapRef.current) return;
-    mapRef.current.flyTo({
-      center: [flyTo.lng, flyTo.lat],
-      zoom: flyTo.zoom ?? 17.5,
-      duration: 900,
-    });
-  }, [flyTo]);
+    if (!map) return;
 
-  const goToUser = useCallback(() => {
-    if (userLocation && mapRef.current) {
-      mapRef.current.flyTo({
-        center: [userLocation.lng, userLocation.lat],
-        zoom: 17.5,
-        duration: 800,
-      });
-    }
-  }, [userLocation]);
-
-  useEffect(() => {
-    (window as any).__yabatechGoToUser = goToUser;
     (window as any).__yabatechZoom = (delta: number) => {
-      const map = mapRef.current;
-      if (!map) return;
-      map.zoomTo(map.getZoom() + delta, { duration: 250 });
+      map.setZoom((map.getZoom() ?? 16) + delta);
+    };
+    (window as any).__yabatechGoToUser = () => {
+      if (userLocation) {
+        map.panTo({ lat: userLocation.lat, lng: userLocation.lng });
+        map.setZoom(17.5);
+      }
     };
     (window as any).__yabatechResetNorth = () => {
-      const map = mapRef.current;
-      if (!map) return;
-      map.easeTo({ bearing: 0, pitch: 0, duration: 400 });
+      map.setHeading(0);
+      map.setTilt(0);
     };
-  }, [goToUser]);
+  }, [map, userLocation]);
 
-  return <div ref={containerRef} className="absolute inset-0 w-full h-full" />;
+  const places = mapData?.places ?? [];
+
+  return (
+    <>
+      {places.map((p) => {
+        const isSelected = selectedPlace?.id === p.id;
+        return (
+          <AdvancedMarker
+            key={p.id}
+            position={{ lat: p.lat, lng: p.lng }}
+            onClick={() => onSelectPlace(p.id)}
+            zIndex={isSelected ? 20 : 10}
+          >
+            <button
+              type="button"
+              className="place-label"
+              style={{
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: 'Inter, system-ui, sans-serif',
+                fontSize: isSelected ? 11 : 10,
+                fontWeight: isSelected ? 600 : 500,
+                lineHeight: 1.2,
+                maxWidth: 110,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                padding: '3px 8px',
+                borderRadius: 999,
+                background: isSelected ? '#1e3a5f' : '#f8f7f2',
+                color: isSelected ? '#f8f7f2' : '#1a1a1a',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                border: `1px solid ${isSelected ? '#1e3a5f' : 'rgba(30,58,95,0.25)'}`,
+              }}
+            >
+              {p.name}
+            </button>
+          </AdvancedMarker>
+        );
+      })}
+
+      {/* User location blue dot */}
+      {userLocation && (
+        <AdvancedMarker
+          position={{ lat: userLocation.lat, lng: userLocation.lng }}
+          zIndex={30}
+        >
+          <div
+            style={{
+              width: 18,
+              height: 18,
+              borderRadius: '50%',
+              background: '#1e3a5f',
+              border: '3px solid #fff',
+              boxShadow: '0 0 0 2px #1e3a5f, 0 1px 4px rgba(0,0,0,0.3)',
+            }}
+          />
+        </AdvancedMarker>
+      )}
+    </>
+  );
+}
+
+export function CampusMap(props: Props) {
+  const [initialCenter, setInitialCenter] = useState(CAMPUS_CENTER);
+  const [ready, setReady] = useState(false);
+
+  // Try to get user location as soon as the component mounts
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setReady(true);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setInitialCenter({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        });
+        setReady(true);
+      },
+      () => {
+        // Permission denied or error → stay on campus centre
+        setReady(true);
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
+    );
+  }, []);
+
+  if (!apiKey) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-surface text-sm text-text-muted">
+        Missing VITE_GOOGLE_MAPS_API_KEY
+      </div>
+    );
+  }
+
+  if (!ready) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-surface text-sm text-text-muted">
+        Getting your location…
+      </div>
+    );
+  }
+
+  return (
+    <APIProvider apiKey={apiKey}>
+      <Map
+        defaultCenter={initialCenter}
+        defaultZoom={17.5}
+        gestureHandling="greedy"
+        disableDefaultUI={true}
+        keyboardShortcuts={false}
+        clickableIcons={false}          // ← kills Google POI popups
+        mapId={mapId}
+        styles={CLEAN_STYLES}
+        style={{ width: '100%', height: '100%' }}
+        className="absolute inset-0 w-full h-full"
+        // Optional: restrict to campus area if you want
+        // restriction={{
+        //   latLngBounds: {
+        //     north: 6.525,
+        //     south: 6.513,
+        //     east: 3.381,
+        //     west: 3.368,
+        //   },
+        //   strictBounds: false,
+        // }}
+      >
+        <MapInner {...props} />
+      </Map>
+    </APIProvider>
+  );
 }
